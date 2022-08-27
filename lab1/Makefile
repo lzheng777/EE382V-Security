@@ -1,15 +1,12 @@
 CC := gcc
-CFLAGS := -g
+CFLAGS := -std=c11 -g
 
 all: server client
 
 % : %.c
 	$(CC) $(CFLAGS) -o $@ $<
 
-.PHONY: clean test
+.PHONY: clean
 clean:
 	rm server client
 
-test: server client
-	./server
-	./client
