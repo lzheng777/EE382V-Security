@@ -46,7 +46,7 @@ int main(){
 
         ssize_t count = recv(clientSock, buf, 1024, 0);
                 
-        buf[count + 1] = '\0';
+        buf[count] = '\0';
 
         for (int i = 0; i < count + 1; i++){
             buf[i] = toupper(buf[i]);

@@ -28,17 +28,14 @@ int main(){
         printf("Socket failed to connect\n");
     }
 
-//    char buf[1024];
-//    printf("Enter string: ");
-//    fgets(buf, 1024, stdin);
-
     char buf[] = "Input lowercase sentence:";
 
     if (send(clientSock, buf, strlen(buf), 0) != strlen(buf)){
         printf("Did not send entire string: %s\n", buf);
     }
 
-    recv(clientSock, buf, 1024, 0);
+    ssize_t count = recv(clientSock, buf, 1024, 0);
+    buf[count] = '\0';
     printf("From Server: %s\n", buf);
 
     close(clientSock);
