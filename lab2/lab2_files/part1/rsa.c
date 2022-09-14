@@ -1,13 +1,7 @@
 #include <assert.h>
-#include <stdio.h>
-#include <stdint.h>
-#include <math.h>
-#include <stdint.h>
+#include <string.h>
 
-typedef struct uint128 {
-  uint64_t hi;
-  uint64_t lo;
-} uint128;
+#include "rsa.h"
 
 int main() {
 /* Private-Key: (128 bit)                                                                                                                                         */
@@ -34,6 +28,15 @@ int main() {
     //END DO NOT MODIFY
 
     /* YOUR CODE HERE: Invoke your RSA acclerator, write the encrypted output of plaintext to ciphertext */
+    // uint128 a = {1, 0};
+    // uint128 b = {0, 0x8000000000000001};
+    
+    // modulo(&ciphertext, a, b);
+    // printf("%llx %llx\n", ciphertext.hi, ciphertext.lo);
+    // return 0;
+
+    uint64_t msgLen = strlen(plaintext);
+    rsa_encrypt(&ciphertext, &plaintext, msgLen, &modulus, &privateExp, pubExp);
 
     //DO NOT MODIFY
     char *encrypted_text = (char*)&ciphertext;
@@ -41,6 +44,7 @@ int main() {
     //END DO NOT MODIFY
 
     /* YOUR CODE HERE: Invoke your RSA acclerator, write the decrypted output of ciphertext to decrypted */
+    rsa_decrypt(&decrypted, &ciphertext, &modulus, &privateExp, pubExp);
 
     //DO NOT MODIFY
     char *decrypted_text = (char*)&decrypted;
