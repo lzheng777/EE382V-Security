@@ -1,5 +1,4 @@
 #include <assert.h>
-#include <string.h>
 
 #include "rsa.h"
 
@@ -19,13 +18,20 @@ int main() {
 /* coefficient: 10155582946292377246 (0x8cefe0e210c5a69e) */
 
     //DO NOT MODIFY
-    uint128 modulus = {0xe037d35a8b160eb7LL,  0xf11919bfef440917LL};
-    uint128 privateExp = {0x00cab10ccaa4437b67LL,  0x11c977a277fe00a1LL};
-    uint64_t pubExp = 65537;
+    // uint128 modulus = {0xe037d35a8b160eb7LL,  0xf11919bfef440917LL};
+    // uint128 privateExp = {0x00cab10ccaa4437b67LL,  0x11c977a277fe00a1LL};
+    // uint64_t pubExp = 65537;
+    // const char plaintext[] = "Hello !";
+    // uint128 ciphertext;
+    // uint128 decrypted;
+    //END DO NOT MODIFY
+
+    uint128 modulus = {0,  3127};
+    uint128 privateExp = {0,  2011};
+    uint64_t pubExp = 3;
     const char plaintext[] = "Hello !";
     uint128 ciphertext;
     uint128 decrypted;
-    //END DO NOT MODIFY
 
     /* YOUR CODE HERE: Invoke your RSA acclerator, write the encrypted output of plaintext to ciphertext */
     // uint128 a = {1, 0};
@@ -36,7 +42,7 @@ int main() {
     // return 0;
 
     uint64_t msgLen = strlen(plaintext);
-    rsa_encrypt(&ciphertext, &plaintext, msgLen, &modulus, &privateExp, pubExp);
+    rsa_encrypt(&ciphertext, &plaintext, modulus, pubExp, msgLen);
 
     //DO NOT MODIFY
     char *encrypted_text = (char*)&ciphertext;
@@ -44,7 +50,7 @@ int main() {
     //END DO NOT MODIFY
 
     /* YOUR CODE HERE: Invoke your RSA acclerator, write the decrypted output of ciphertext to decrypted */
-    rsa_decrypt(&decrypted, &ciphertext, &modulus, &privateExp, pubExp);
+    rsa_decrypt(&decrypted, &ciphertext, modulus, privateExp, msgLen);
 
     //DO NOT MODIFY
     char *decrypted_text = (char*)&decrypted;
