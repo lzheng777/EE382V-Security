@@ -18,30 +18,33 @@ int main() {
 /* coefficient: 10155582946292377246 (0x8cefe0e210c5a69e) */
 
     //DO NOT MODIFY
-    // uint128 modulus = {0xe037d35a8b160eb7LL,  0xf11919bfef440917LL};
-    // uint128 privateExp = {0x00cab10ccaa4437b67LL,  0x11c977a277fe00a1LL};
-    // uint64_t pubExp = 65537;
-    // const char plaintext[] = "Hello !";
-    // uint128 ciphertext;
-    // uint128 decrypted;
-    //END DO NOT MODIFY
-
-    uint128 modulus = {0,  3127};
-    uint128 privateExp = {0,  2011};
-    uint64_t pubExp = 3;
-    const char plaintext[] = "Hello !";
+    uint128 modulus = {0xe037d35a8b160eb7LL,  0xf11919bfef440917LL};
+    uint128 privateExp = {0x00cab10ccaa4437b67LL,  0x11c977a277fe00a1LL};
+    uint64_t pubExp = 65537;
+    const char plaintext[] = "H";
     uint128 ciphertext;
     uint128 decrypted;
+    //END DO NOT MODIFY
 
-    /* YOUR CODE HERE: Invoke your RSA acclerator, write the encrypted output of plaintext to ciphertext */
-    // uint128 a = {1, 0};
-    // uint128 b = {0, 0x8000000000000001};
-    
-    // modulo(&ciphertext, a, b);
-    // printf("%llx %llx\n", ciphertext.hi, ciphertext.lo);
-    // return 0;
+    // Small example
+    // uint128 modulus = {0,  31313};
+    // uint128 privateExp = {0,  4423};
+    // uint64_t pubExp = 7;
+    // const char plaintext[] = "Hi";
+    // uint128 ciphertext;
+    // uint128 decrypted;
 
+    // Even smaller example
+    // uint128 modulus = {0,  247};
+    // uint128 privateExp = {0, 31};
+    // uint64_t pubExp = 7;
+    // const char plaintext[] = "H";
+    // uint128 ciphertext;
+    // uint128 decrypted;
+
+    /* YOUR CODE HERE: Invoke your RSA acclerator, write the encrypted output of plaintext to ciphertext */ 
     uint64_t msgLen = strlen(plaintext);
+    // printf("%x\n", plaintext);
     rsa_encrypt(&ciphertext, &plaintext, modulus, pubExp, msgLen);
 
     //DO NOT MODIFY
@@ -50,6 +53,7 @@ int main() {
     //END DO NOT MODIFY
 
     /* YOUR CODE HERE: Invoke your RSA acclerator, write the decrypted output of ciphertext to decrypted */
+    // printf("decr mod: %lu %lu\n", privateExp.hi, privateExp.lo);
     rsa_decrypt(&decrypted, &ciphertext, modulus, privateExp, msgLen);
 
     //DO NOT MODIFY
