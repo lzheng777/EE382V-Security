@@ -21,6 +21,12 @@ uint256 * createUint256();
 
 int convert128To256(uint256 *result, uint128 val);
 
+int add(uint256 *sum, uint256 a, uint256 b);
+int subtract(uint256 *diff, uint256 a, uint256 b);
+
+int multiply(uint256 *product, uint128 a, uint128 b);
+int modulo(uint128 *rem, uint256 a, uint128 b);
+
 void rsa_encrypt(
     uint128 *ciphertext, 
     const char *plaintext, 

@@ -1,11 +1,8 @@
 #include "rsa.h"
 
-#define BITSHIFT_32 32
-#define HIGH_MASK_32 0xFFFF0000
-#define LOW_MASK_32 0x0000FFFF
-
 #define CARRY_OVER_BIT 0x8000000000000000
 #define BITSHIFT_64 64
+// #define 64BIT_MAX 0xffffffffffffffff
 
 uint256 * createUint256(){
     return (uint256 *)malloc(sizeof(uint256));
@@ -40,8 +37,27 @@ int compare256(uint256 a, uint256 b){
     if (hiCompare == 0 && lowCompare == 0)
         return 0;
     
-    if (hiCompare == 1 || (hiCompare == 0 && lowCompare == 1))
+    if (a.hi128.hi == b.hi128.hi){
+        if (a.hi128.lo == b.hi128.lo){
+            if (a.lo128.hi == b.lo128.hi){
+                if (a.lo128.lo == b.lo128.lo){
+                    return 0;
+                }
+                else if (a.lo128.lo > b.lo128.lo){
+                    return 1;
+                }
+            }
+            else if (a.lo128.hi > b.lo128.hi){
+                return 1;
+            }
+        }
+        else if (a.hi128.lo > b.hi128.lo){
+            return 1;
+        }
+    }
+    else if (a.hi128.hi > b.hi128.hi){
         return 1;
+    }
 
     return -1;
 }
@@ -57,26 +73,29 @@ void double256(uint256 *val){
 }
 
 void half256(uint256 *val){
-    uint8_t carryOver = (val->lo128.hi & 0x1) << (BITSHIFT_64 - 1);
-    uint8_t carryOver2 = (val->hi128.lo & 0x1) << (BITSHIFT_64 - 1);
-    uint8_t carryOver3 = (val->hi128.hi & 0x1) << (BITSHIFT_64 - 1);
-    val->lo128.lo = val->lo128.lo >> 1;
-    val->lo128.hi = (val->lo128.hi >> 1) + carryOver;
-    val->hi128.lo = (val->hi128.lo >> 1) + carryOver2;
-    val->hi128.hi = (val->hi128.hi >> 1) + carryOver3;
+    uint64_t carryOver = (val->lo128.hi & 0x1) << (BITSHIFT_64 - 1);
+    uint64_t carryOver2 = (val->hi128.lo & 0x1) << (BITSHIFT_64 - 1);
+    uint64_t carryOver3 = (val->hi128.hi & 0x1) << (BITSHIFT_64 - 1);
+    val->lo128.lo = (val->lo128.lo >> 1) + carryOver;
+    val->lo128.hi = (val->lo128.hi >> 1) + carryOver2;
+    val->hi128.lo = (val->hi128.lo >> 1) + carryOver3;
+    val->hi128.hi = (val->hi128.hi >> 1);
 }
 
-void add(uint256 *sum, uint256 a, uint256 b){
+//fix carry over stuff
+int add(uint256 *sum, uint256 a, uint256 b){
     sum->lo128.lo = a.lo128.lo + b.lo128.lo;
     
-    uint64_t overflow = sum->lo128.lo < a.lo128.lo && sum->lo128.lo < b.lo128.lo ? 1 : 0;
+    uint64_t overflow = a.lo128.lo > 0 && b.lo128.lo > UINT64_MAX - a.lo128.lo ? 1 : 0;
     sum->lo128.hi = a.lo128.hi + b.lo128.hi + overflow;
     
-    uint64_t overflow2 = sum->lo128.hi < a.lo128.hi && sum->lo128.lo < b.lo128.hi ? 1 : 0;
+    uint64_t overflow2 = a.lo128.hi > 0 && b.lo128.hi > UINT64_MAX - a.lo128.hi ? 1 : 0;
     sum->hi128.lo = a.hi128.lo + b.hi128.lo + overflow2;
 
-    overflow = sum->hi128.lo < a.hi128.lo && sum->hi128.lo < b.hi128.lo ? 1 : 0;
+    overflow = a.hi128.lo > 0 && b.hi128.lo > UINT64_MAX - a.hi128.lo ? 1 : 0;
     sum->hi128.hi = a.hi128.hi + b.hi128.hi + overflow;
+
+    return 0;
 }
 
 int subtract(uint256 *diff, uint256 a, uint256 b){
@@ -91,7 +110,7 @@ int subtract(uint256 *diff, uint256 a, uint256 b){
     }
 
     if (a.lo128.lo < b.lo128.lo){
-        uint64_t borrow = 0xffffffffffffffffLL;
+        uint64_t borrow = UINT64_MAX;
         a.lo128.hi -= 1;
         borrow -= b.lo128.lo;
         a.lo128.lo += (borrow + 1);
@@ -102,7 +121,7 @@ int subtract(uint256 *diff, uint256 a, uint256 b){
     }
 
     if (a.lo128.hi < b.lo128.hi){
-        uint64_t borrow = 0xffffffffffffffffLL;
+        uint64_t borrow = UINT64_MAX;
         a.hi128.lo -= 1;
         borrow -= b.lo128.hi;
         a.lo128.hi += (borrow + 1);
@@ -113,11 +132,11 @@ int subtract(uint256 *diff, uint256 a, uint256 b){
     }
 
     if (a.hi128.lo < b.hi128.lo){
-        uint64_t borrow = 0xffffffffffffffffLL;
+        uint64_t borrow = UINT64_MAX;
         a.hi128.hi -= 1;
         borrow -= b.hi128.lo;
         a.hi128.lo += (borrow + 1);
-        diff->lo128.hi = a.hi128.lo;
+        diff->hi128.lo = a.hi128.lo;
     }
     else {
         diff->hi128.lo = a.hi128.lo - b.hi128.lo;
@@ -135,86 +154,96 @@ int multiply(uint256 *product, uint128 a, uint128 b){
     product->lo128.hi = 0;
     product->lo128.lo = 0;
 
-    uint256 sum;
-    uint128 *smaller;
+    uint256 sum, iter;
     if (compare128(a, b) >= 0){
         convert128To256(&sum, a);
-        smaller = &b;
+        convert128To256(&iter, b);
     }
     else {
         convert128To256(&sum, b);
-        smaller = &a;
+        convert128To256(&iter, a);
     }
 
-    uint64_t remainder = smaller->hi;
-    uint64_t val = smaller->lo;
+// printf("summer: %lx %lx %lx %lx\n", sum.hi128.hi, sum.hi128.lo, sum.lo128.hi, sum.lo128.lo);
+// printf("iter: %lx %lx\n", iter.lo128.hi, iter.lo128.lo);
 
-    // printf("sum: %lx %lx\n", sum.hi, sum.lo);
-    // printf("remainder: %lx, val: %lx\n", remainder, val);
-
-    while (!(val == 0 && remainder == 0)){
-        if ((val % 2) == 1){
+    while (!(iter.lo128.hi == 0 && iter.lo128.lo == 0)){
+        if (iter.lo128.lo & 0x1){
             add(product, sum, *product);
-            // uint128 overflow = {0, add(product[1], sum, *product[1])};
-            // add(product[0], overflow, *product[0]);
-            // printf("add result: %lu %lu\n", product->hi, product->lo);
+// printf("add result: %lu %lu %lu %lu\n", 
+//     product->hi128.hi, product->hi128.lo,
+//     product->lo128.hi, product->lo128.lo);
         }
 
         // double the larger number
         double256(&sum);
-// printf("new sum: %lu %lu\n", sum.hi, sum.lo);
 
         // divide the smaller number
-        val = val >> 1;
-        val += (remainder % 2) << (BITSHIFT_64 - 1);
-        remainder = remainder >> 1;
-// printf("new remainder: %lx  new val: %lx\n", remainder, val);
+        half256(&iter);
     }
 
     return 0;
 }
 
 int modulo(uint128 *rem, uint256 a, uint128 b){
-    uint256 *divisor = createUint256();
-    divisor->lo128 = b;
+    uint256 b256;
+    convert128To256(&b256, b);
+    if (compare256(a, b256) == -1){
+        rem->hi = a.lo128.hi;
+        rem->lo = a.lo128.lo;
+        return 0;
+    }
+    else if (compare256(a, b256) == 0){
+        rem->hi = 0;
+        rem->lo = 0;
+        return 0;
+    }
 
-    // printf("divisor: %lx %lx\n", divisor.hi, divisor.lo);
+    uint256 divisor = {{0, 0}, {b.hi, b.lo}};
+
+// printf("div: %lx %lx %lx %lx\n", divisor.hi128.hi, divisor.hi128.lo, divisor.lo128.hi, divisor.lo128.lo);
+
     uint256 temp = {
         {a.hi128.hi / 2, a.hi128.lo / 2}, 
         {a.lo128.hi / 2, a.lo128.lo / 2}
     };
-    // uint128 temp[2] = {{a[0]->hi / 2, a[0]->lo / 2}, {a[1]->hi / 2, a[1]->lo / 2}};
 
-    uint64_t carryOver, carryOver2, carryOver3;
-
-    while (compare256(*divisor, temp) == -1){
-        double256(divisor);
+    while (compare256(divisor, temp) < 1){
+        double256(&divisor);
     }
 
-    convert128To256(&temp, b);
-    // printf("divisor: %lx %lx\n", divisor.hi, divisor.lo);
+// printf("a start: %lx %lx %lx %lx\n", a.hi128.hi, a.hi128.lo, a.lo128.hi, a.lo128.lo);
 
     uint256 terminate = {{0, 0}, {0, 0}};
 
-    while (compare256(a, temp) > -1){
-        if (compare256(a, *divisor) > -1){
+uint16_t bitNum = 0;
+    while (compare256(a, b256) > -1){
 // printf("a: %lu %lu divisor: %lu %lu\n", a.lo128.hi, a.lo128.lo, divisor->lo128.hi, divisor->lo128.lo);
-            if (subtract(&a, a, *divisor) == -1){
+        while (compare256(a, divisor) > -1){
+// printf("im here: %u\n", bitNum);
+// printf("a pre-sub: %lx %016lx %016lx %016lx\n", a.hi128.hi, a.hi128.lo, a.lo128.hi, a.lo128.lo);
+            if (subtract(&a, a, divisor) == -1){
+                printf("FUCK SUBTRACTION\n");
                 return -1;
             }
-            // printf("subtracted divisor: %lu %lu\n", divisor.hi, divisor.lo);
+// printf("a post-sub: %lx %016lx %016lx %016lx\n", a.hi128.hi, a.hi128.lo, a.lo128.hi, a.lo128.lo);
         }
-        half256(divisor);
+// printf("div: %lx %016lx %016lx %016lx\n", divisor.hi128.hi, divisor.hi128.lo, divisor.lo128.hi, divisor.lo128.lo);
 
-        if (compare256(*divisor, terminate) == 0){
-            break;
-        }
+        half256(&divisor);
+
+        // bad condition to terminate, a is still greater than og modulo
+//         if (compare256(*divisor, terminate) == 0){
+// printf("a: %lx %lx %lx %lx\n", a.hi128.hi, a.hi128.lo, a.lo128.hi, a.lo128.lo);
+// printf("b: %lx %lx %lx %lx\n", temp.hi128.hi, temp.hi128.lo, temp.lo128.hi, temp.lo128.lo);
+// printf("div: %lx %lx %lx %lx\n", divisor->hi128.hi, divisor->hi128.lo, divisor->lo128.hi, divisor->lo128.lo);
+// printf("is a > temp? %d\n", compare256(a, temp));
+//             break;
+//         }
     }
 
     rem->hi = a.lo128.hi;
     rem->lo = a.lo128.lo;
-
-    free(divisor);
 
     return 0;
 }
@@ -240,50 +269,52 @@ void rsa_encrypt(
 // uint128 *temp = (uint128 *)plaintext;
 // printf("plaintext: %016lx %016lx\n", temp->hi, temp->lo);
     // fix this later
-    if (msgLen < 8){
-        char *msg = (char *) ciphertext;
-        memset(msg, 0, 16);
-        // printf("plaintext: %016lx %016lx\n", plaintext->hi, plaintext->lo);
-        // memset(&msg[8 - msgLen], *plaintext, msgLen);
-        for (int i = 0; i < msgLen; i++){
-            memset(&msg[8 + i], plaintext[i], 1);
-        }
-    }
+    uint128 base; // = {ciphertext->hi, ciphertext->lo};
 
-    uint128 original = {ciphertext->hi, ciphertext->lo};
+char *msg = (char *) &base;
+strcpy(msg, plaintext);
 
-    printf("plaintext: %016lu %016lu\n", ciphertext->hi, ciphertext->lo);
-    printf("mod: %lu %lu\n", modulus.hi, modulus.lo);
+    // if (msgLen <= 8){
+    //     char *msg = (char *) &base;
+    //     memset(msg, 0, 16);
+    //     // 
+    //     // memset(&msg[8 - msgLen], *plaintext, msgLen);
+    //     for (int i = 0; i < msgLen; i++){
+    //         memset(&msg[8 + i], plaintext[i], 1);
+    //     }
+    // }
 
-    uint256 buf, buf2, pubExp256, terminate;
-    pubExp--;
-/*
-    pubExp256.lo128.lo = pubExp;
+    printf("plaintext: %016lx %016lx\n", base.hi, base.lo);
+    printf("mod: %lx %lx\n", modulus.hi, modulus.lo);
 
-    while (compare256(pubExp256, terminate) > 0){
-        // printf("im here\n");
-        half256(&pubExp256);
-        multiply(&buf2, original, original);
-        modulo(&original, buf2, modulus);
-        // printf("buf2: %lu %lu\n", buf2.lo128.hi, buf2.lo128.lo);
+    ciphertext->hi = 0;
+    ciphertext->lo = 1;
 
-        if (pubExp256.lo128.lo & 0x1){
-            multiply(&buf, *ciphertext, original);
-            modulo(ciphertext, buf, modulus);
-            // printf("buf: %lu %lu\n", buf.lo128.hi, buf.lo128.lo);
-        }
-
-    }
-    */
-
-///*
+    uint256 buf, buf2;
+uint16_t bitNum = 0;
     while (pubExp > 0){
-        multiply(&buf, *ciphertext, original);
-        pubExp--;
-        modulo(ciphertext, buf, modulus);
+        // printf("exp: %lx\n", pubExp);
+        if (pubExp & 0x1){
+            multiply(&buf, *ciphertext, base);
+            modulo(ciphertext, buf, modulus);
+// printf("buf: %lu %lu\n", buf.lo128.hi, buf.lo128.lo);
+// printf("cipher: %lx %lx\n", ciphertext->hi, ciphertext->lo);
+        }
+        pubExp = pubExp >> 1;
+        multiply(&buf2, base, base);
+// printf("buf2: %lx %lx %lx %lx\n", buf2.hi128.hi, buf2.hi128.lo, buf2.lo128.hi, buf2.lo128.lo);
+        modulo(&base, buf2, modulus);
+bitNum++;
+// printf("bit %u base: %lx %lx\n", bitNum, base.hi, base.lo);
+    }
+
+// this works for large encryption
+//     while (pubExp > 0){
+//         multiply(&buf, *ciphertext, base);
+//         pubExp--;
+//         modulo(ciphertext, buf, modulus);
 // printf("encr mod: %lx %lx\n", ciphertext->hi, ciphertext->lo);
-    } // for small case, result is x20
-//*/
+//     }
 
     printf("ciphertext: %lx %lx\n", ciphertext->hi, ciphertext->lo);
     // ciphertext = {0x900be935e0beb101LL, 0x2700000000000000LL};
@@ -298,57 +329,31 @@ void rsa_decrypt(
     uint64_t msgLen){
     printf("decrypting\n");
         
-    decrypted->hi = ciphertext->hi;
-    decrypted->lo = ciphertext->lo;
+    decrypted->hi = 0;
+    decrypted->lo = 1;
 
     uint256 privateExp256;
     convert128To256(&privateExp256, privateExp);
 
-    uint256 decrement = {{0, 0}, {0, 1}};
+    uint256 decrement = {{0, 0}, {0, 0}};
     printf("ciphertext: %lx %lx\n", ciphertext->hi, ciphertext->lo);
     printf("mod: %lx %lx\n", modulus.hi, modulus.lo);
-
-    // subtract(&privateExp256, privateExp256, decrement);
 
     uint256 buf, buf2;
     uint128 cipherCopy = {ciphertext->hi, ciphertext->lo};
 
-    while (compare256(privateExp256, decrement) != -1){
-        // printf("im here\n");
-        half256(&privateExp256);
-        multiply(&buf2, cipherCopy, cipherCopy);
-        modulo(&cipherCopy, buf2, modulus);
-        // printf("buf2: %lu %lu\n", buf2.lo128.hi, buf2.lo128.lo);
-
+    while (compare256(privateExp256, decrement) > 0){
         if (privateExp256.lo128.lo & 0x1){
             multiply(&buf, *decrypted, cipherCopy);
             modulo(decrypted, buf, modulus);
             // printf("buf: %lu %lu\n", buf.lo128.hi, buf.lo128.lo);
         }
-
+        half256(&privateExp256);
+        multiply(&buf2, cipherCopy, cipherCopy);
+        modulo(&cipherCopy, buf2, modulus);
     }
 
-/*
-    while (compare256(privateExp256, decrement) == 1){
-        multiply(buf, *decrypted, *ciphertext);
-        // printf("decr mult: %lu %lu\n", buf->lo128.hi, buf->lo128.lo);
-        subtract(&privateExp256, privateExp256, decrement);
-        if (modulo(decrypted, *buf, modulus) == -1){
-            printf("FUCK\n");
-            break;
-        }
-
-        // if (privateExp256.lo128.lo % 100000 == 0){
-        //     printf("privateExp countdown: %lu %lu %lu %lu\n", 
-        //         privateExp256.hi128.hi,
-        //         privateExp256.hi128.lo,
-        //         privateExp256.lo128.hi,
-        //         privateExp256.lo128.lo);
-        // }
-        // printf("decr mod: %lu %lu\n", decrypted->hi, decrypted->lo);
-    }
-*/
-    printf("privateExp: %lx %lx\n", privateExp256.lo128.hi, privateExp256.lo128.lo);
+    // printf("privateExp: %lx %lx\n", privateExp256.lo128.hi, privateExp256.lo128.lo);
     printf("decrypted: %016lx %016lx\n", decrypted->hi, decrypted->lo);
     
     // char *decrypted_text = (char*)decrypted;
@@ -356,11 +361,11 @@ void rsa_decrypt(
     //     printf("%u: %x\n", i, decrypted_text[i] & 0xFF);
     // }
 
-    if (msgLen < 8){
-        uint64_t temp = decrypted->hi;
-        decrypted->hi = decrypted->lo;
-        decrypted->lo = temp;
-    }
+    // if (msgLen <= 8){
+    //     uint64_t temp = decrypted->hi;
+    //     decrypted->hi = decrypted->lo;
+    //     decrypted->lo = temp;
+    // }
 
     // free(buf);
 }
