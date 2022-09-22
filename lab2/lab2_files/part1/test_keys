@@ -1,0 +1,31 @@
+//Large example
+// uint128 modulus = {0x9,  0x50d3cacb5a776867};
+// uint128 privateExp = {0x7,  0x1520f3fcd6bbd9d9};
+// uint64_t pubExp = 0x7de9;
+// const char plaintext[] = "Hello123";
+// uint128 ciphertext;
+// uint128 decrypted;
+
+// Medium example
+// uint128 modulus = {0,  111401};
+// uint128 privateExp = {0,  1327};
+// uint64_t pubExp = 79;
+// const char plaintext[] = "Hi";
+// uint128 ciphertext;
+// uint128 decrypted;
+
+// Small example
+// uint128 modulus = {0,  31313};
+// uint128 privateExp = {0,  4423};
+// uint64_t pubExp = 7;
+// const char plaintext[] = "H";
+// uint128 ciphertext;
+// uint128 decrypted;
+
+// Even smaller example
+// uint128 modulus = {0,  247};
+// uint128 privateExp = {0, 31};
+// uint64_t pubExp = 7;
+// const char plaintext[] = "H";
+// uint128 ciphertext;
+// uint128 decrypted;

@@ -31,12 +31,10 @@ void rsa_encrypt(
     uint128 *ciphertext, 
     const char *plaintext, 
     uint128 modulus, 
-    uint64_t pubExp,
-    uint64_t msgLen);
+    uint64_t pubExp);
 
 void rsa_decrypt(
     uint128 *decrypted, 
     uint128 *ciphertext, 
     uint128 modulus, 
-    uint128 privateExp,
-    uint64_t msgLen);
+    uint128 privateExp);
