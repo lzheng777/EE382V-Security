@@ -1,0 +1,4 @@
+docker build -f Dockerfile.db . -t dvwa-db:db
+docker tag 651b8bd6cff5 localhost:32000/dvwa-db:db
+docker push localhost:32000/dvwa-db:db
+docker run -it --rm -p 8082:3306 localhost:32000/dvwa-db:db
