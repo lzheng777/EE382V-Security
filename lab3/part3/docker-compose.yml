@@ -1,0 +1,20 @@
+version: '2'
+services:
+  mysql:
+    image: localhost:32000/dvwa-db:db
+    container_name: dvwa-db-service
+    volumes:
+      - .:/application
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=p@ssw0rd
+      - MYSQL_DATABASE=dvwa
+      - MYSQL_USER=app
+      - MYSQL_PASSWORD=vulnerables
+    ports:
+      - "8082:3306"
+  website:
+    image: localhost:32000/dvwa-web-app:app
+    container_name: dvwa-app
+    ports:
+      - 8000:80 
