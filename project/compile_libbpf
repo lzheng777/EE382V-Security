@@ -1,0 +1,5 @@
+sudo make install NO_PKG_CONFIG=1
+
+# go to / directory, copy over the symbolic links from lib64 to lib
+# run exploit scripts
+

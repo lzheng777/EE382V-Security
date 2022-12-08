@@ -1,0 +1,8 @@
+version: '2'
+services:
+  website:
+    container_name: php_example
+    build:
+      context: ./
+    ports:
+      - 8000:80
