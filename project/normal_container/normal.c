@@ -15,6 +15,8 @@
 
 #define ARRAY_MAP_SIZE 0x1337
 
+__asm__(".symver __libc_start_main,__libc_start_main@GLIBC_2.2.5");
+
 int create_bpf_map(int* map_addr)
 {
     int ret = -1;
